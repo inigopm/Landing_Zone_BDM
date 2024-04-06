@@ -30,31 +30,27 @@ console_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
-# Load environment variables from config..env
+# Load environment variables
 load_dotenv()
-
-# Define HDFS directory path from temporal landing zone
 TEMPORAL_LANDING_DIR_PATH = os.getenv('TEMPORAL_LANDING_DIR_PATH')
-
-# Define HDFS and HBase connection parameters from environment variables
-HDFS_HBASE_HOST = os.getenv('HDFS_HBASE_HOST')
+HDFS_HOST = os.getenv('HDFS_HOST')
 HDFS_PORT = os.getenv('HDFS_PORT')
 HDFS_USER = os.getenv('HDFS_USER')
-HBASE_PORT = os.getenv('HBASE_PORT')
 
 def main():
     try:
-        # Initialize a DataCollector instance
         data_collector = DataCollector(
             TEMPORAL_LANDING_DIR_PATH,
-            HDFS_HBASE_HOST,
+            HDFS_HOST,
             HDFS_PORT,
             HDFS_USER,
             logger)
-
-        # Run the data collection functions
+        
+        #data_collector.delete_hdfs_directory(TEMPORAL_LANDING_DIR_PATH)
+        # Collect local files
         data_collector.collect_local_files_to_hdfs()
-
+        # Collect external files
+        data_collector.collect_data_from_opendata('accidents-gu-bcn')
     except Exception as e:
         logger.exception(f'Error occurred during data collection: {e}')
 

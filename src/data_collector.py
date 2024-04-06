@@ -1,5 +1,7 @@
 import os
 import requests
+import json
+import csv
 from hdfs import InsecureClient
 
 class DataCollector:
@@ -40,8 +42,6 @@ class DataCollector:
             filename (str): Name of the file to be uploaded.
             data_bytes (bytes): The data bytes of the file.
             hdfs_dir_path (str): Path to the HDFS directory where the file will be uploaded.
-        Returns:
-            None
         """
         try:            
             hdfs_file_path = os.path.join(hdfs_dir_path, filename)
@@ -59,14 +59,14 @@ class DataCollector:
         try:
             json_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'idealista')
             csv_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'opendatabcn-income')
-            temporal_landing_csv_dir = os.path.join(self.temporal_landing_dir, 'temporal_landing_CSV')
-            temporal_landing_json_dir = os.path.join(self.temporal_landing_dir, 'temporal_landing_JSON')
+            temporal_landing_opendata_dir = os.path.join(self.temporal_landing_dir, 'data_opendatabcn')
+            temporal_landing_idealista_dir = os.path.join(self.temporal_landing_dir, 'data_idealista')
 
-            self.create_hdfs_dir(temporal_landing_csv_dir)
-            self.create_hdfs_dir(temporal_landing_json_dir)
+            self.create_hdfs_dir(temporal_landing_opendata_dir)
+            self.create_hdfs_dir(temporal_landing_idealista_dir)
 
-            self.upload_files_in_directory(csv_dir, temporal_landing_csv_dir, '.csv')
-            self.upload_files_in_directory(json_dir, temporal_landing_json_dir, '.json')
+            self.upload_files_in_directory(csv_dir, temporal_landing_opendata_dir, '.csv')
+            self.upload_files_in_directory(json_dir, temporal_landing_idealista_dir, '.json')
 
         except Exception as e:
             self.logger.exception(e)
@@ -86,9 +86,7 @@ class DataCollector:
         """
         Collects data from the CKAN API for the given dataset ID and uploads it to HDFS.
         Args:
-            dataset_id (str): The ID of the dataset on CKAN.
-        Returns:
-            None
+            dataset_id (str): Nom del dataset de opendata Barcelona.
         """
         try:
             base_url = "https://opendata-ajuntament.barcelona.cat/data/api/3/"
@@ -99,32 +97,35 @@ class DataCollector:
             response = requests.get(endpoint_url, headers=headers)
 
             if response.status_code == 200:
-                temporal_landing_URL_dir = os.path.join(self.temporal_landing_dir, 'temporal_landing_URL')
-                self.create_hdfs_dir(temporal_landing_URL_dir)
+                temporal_landing_dir = os.path.join(self.temporal_landing_dir, 'opendatabcn_accidents')
+                self.create_hdfs_dir(temporal_landing_dir)
 
                 resources = response.json()['result']['resources']
                 for resource in resources:
                     resource_url = resource['url']
                     if resource_url:
-                        self.download_and_upload(resource_url, temporal_landing_URL_dir)
-
+                        # Download CSV data
+                        csv_data = requests.get(resource_url).content
+                        # Only upload .csv files
+                        if not resource['name'].endswith('.xml'):
+                            # Upload data to HDFS                        
+                            self.upload_file_to_hdfs(resource['name'], csv_data, temporal_landing_dir)
             else:
                 self.logger.error(f"Failed to fetch dataset from CKAN API: {response.status_code}")
         except Exception as e:
             self.logger.exception(f"An error occurred while collecting data from CKAN API: {e}")
 
-    def download_and_upload(self, resource_url, hdfs_dir):
+    def delete_hdfs_directory(self, hdfs_dir_path):
         """
-        Downloads data from URL and uploads it to HDFS.
+        Delete a directory and all its contents from HDFS.
+        Args:
+            hdfs_dir_path (str): Path to the HDFS directory to be deleted.
         """
         try:
-            response = requests.get(resource_url)
-            if response.status_code == 200:
-                data_bytes = response.content
-                filename = resource_url.split('/')[-1]
-                self.upload_file_to_hdfs(filename, data_bytes, hdfs_dir)
-                self.logger.info(f"Data from CKAN API uploaded to HDFS successfully: {filename}")
+            if self.client.content(hdfs_dir_path, strict=False) is not None:
+                self.client.delete(hdfs_dir_path, recursive=True)
+                self.logger.info(f"Directory '{hdfs_dir_path}' and its contents deleted successfully from HDFS.")
             else:
-                self.logger.error(f"Failed to download data from URL: {resource_url}, Status code: {response.status_code}")
+                self.logger.info(f"Directory '{hdfs_dir_path}' does not exist in HDFS.")
         except Exception as e:
-            self.logger.exception(f"An error occurred while downloading and uploading data: {e}")
+            self.logger.exception(f"Failed to delete directory '{hdfs_dir_path}' from HDFS: {e}")
