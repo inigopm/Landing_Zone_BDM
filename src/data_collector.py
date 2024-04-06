@@ -1,6 +1,5 @@
 import os
 import requests
-import json
 from hdfs import InsecureClient
 
 class DataCollector:
@@ -58,8 +57,8 @@ class DataCollector:
         Collects local files data and uploads them to HDFS.
         """
         try:
-            json_dir = '/data/idealista/'
-            csv_dir = '/data/opendatabcn-income/'
+            json_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'idealista')
+            csv_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'opendatabcn-income')
             temporal_landing_csv_dir = os.path.join(self.temporal_landing_dir, 'temporal_landing_CSV')
             temporal_landing_json_dir = os.path.join(self.temporal_landing_dir, 'temporal_landing_JSON')
 
