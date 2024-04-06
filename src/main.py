@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 import logging.handlers
 from data_collector import DataCollector
+from data_loader import DataLoader
 
 # Create logger object
 logger = logging.getLogger(__name__)
@@ -33,9 +34,14 @@ logger.addHandler(console_handler)
 # Load environment variables
 load_dotenv()
 TEMPORAL_LANDING_DIR_PATH = os.getenv('TEMPORAL_LANDING_DIR_PATH')
+TEMPORAL_LANDING_CSV_DIR = os.getenv('TEMPORAL_LANDING_CSV_DIR')
+TEMPORAL_LANDING_JSON_DIR = os.getenv('TEMPORAL_LANDING_JSON_DIR')
 HDFS_HOST = os.getenv('HDFS_HOST')
 HDFS_PORT = os.getenv('HDFS_PORT')
 HDFS_USER = os.getenv('HDFS_USER')
+MONGO_CONNECTION_STRING = os.getenv('MONGO_CONNECTION_STRING')
+MONGO_DB_NAME = os.getenv('MONGO_DB_NAME')
+MONGO_COLLECTION_NAME = os.getenv('MONGO_COLLECTION_NAME')
 
 def main():
     try:
@@ -51,8 +57,19 @@ def main():
         data_collector.collect_local_files_to_hdfs()
         # Collect external files
         data_collector.collect_data_from_opendata('accidents-gu-bcn')
+
+        data_loader = DataLoader(
+            HDFS_HBASE_HOST,
+            HDFS_USER,
+            MONGO_CONNECTION_STRING,
+            MONGO_DB_NAME,
+            MONGO_COLLECTION_NAME,
+            logger)
+
+        data_loader.process_and_load_data(TEMPORAL_LANDING_CSV_DIR, TEMPORAL_LANDING_JSON_DIR)
+
     except Exception as e:
-        logger.exception(f'Error occurred during data collection: {e}')
+        logger.exception(f'Error occurred during data collection and loading: {e}')
 
 if __name__ == '__main__':
     main()

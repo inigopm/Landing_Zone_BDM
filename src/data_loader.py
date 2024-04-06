@@ -1,52 +1,66 @@
-from hdfs import InsecureClient
+import os
 import pandas as pd
+from hdfs import InsecureClient
 from pymongo import MongoClient
-from pyarrow import parquet as pq
-from dotenv import load_dotenv
+from pyarrow import parquet as pq, fs
 
-env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
-load_dotenv(dotenv_path=env_path)
+class DataLoader:
+    def __init__(self, hdfs_host, hdfs_user, mongo_connection_string, mongo_db_name, mongo_collection_name, logger):
+        self.hdfs_client = InsecureClient(f'http://{hdfs_host}', user=hdfs_user)
+        self.mongo_client = MongoClient(mongo_connection_string)
+        self.mongo_db = self.mongo_client[mongo_db_name]
+        self.mongo_collection = self.mongo_db[mongo_collection_name]
+        self.logger = logger
 
-# Configurations
-HDFS_HOST = os.getenv('HDFS_HOST')
-HDFS_USER = os.getenv('HDFS_USER')
-MONGO_CONNECTION_STRING = os.getenv('MONGO_CONNECTION_STRING')
-MONGO_DB_NAME = os.getenv('MONGO_DB_NAME')
-MONGO_COLLECTION_NAME = os.getenv('MONGO_COLLECTION_NAME')
+    def process_csv_files(self, temporal_landing_csv_dir):
+        try:
+            csv_files = self.hdfs_client.list(temporal_landing_csv_dir)
+            for csv_file in csv_files:
+                local_path = os.path.join('/tmp', csv_file)
+                hdfs_path = os.path.join(temporal_landing_csv_dir, csv_file)
+                
+                self.hdfs_client.download(hdfs_path, local_path, overwrite=True)
+                
+                df = pd.read_csv(local_path)
 
-hdfs_client = InsecureClient(HDFS_HOST, user=HDFS_USER)
-mongo_client = MongoClient(MONGO_CONNECTION_STRING)
-mongo_db = mongo_client[MONGO_DB_NAME]
-mongo_collection = mongo_db[MONGO_COLLECTION_NAME]
+                parquet_hdfs_path = hdfs_path.replace('.csv', '.parquet')
+                with fs.HadoopFileSystem(host=self.hdfs_client.url.split('//')[-1], port=int(self.hdfs_client.root.split(':')[-1])) as hdfs_fs:
+                    pq.write_table(pq.Table.from_pandas(df), parquet_hdfs_path, filesystem=hdfs_fs)
+                
+                self.logger.info(f"CSV file {csv_file} processed and stored as Parquet in HDFS.")
+        except Exception as e:
+            self.logger.exception(f"Error processing CSV files: {e}")
 
-# Util functions
-def load_csv_from_hdfs_to_parquet(hdfs_path, local_path, parquet_path):
-    """Download CSV from HDFS, convert to DataFrame and Parquet."""
-    hdfs_client.download(hdfs_path, local_path, overwrite=True)
-    df = pd.read_csv(local_path)
-    table = pq.Table.from_pandas(df)
-    pq.write_table(table, parquet_path)
+    def process_json_files(self, temporal_landing_json_dir):
+        try:
+            json_files = self.hdfs_client.list(temporal_landing_json_dir)
+            for json_file in json_files:
+                local_path = os.path.join('/tmp', json_file)
+                hdfs_path = os.path.join(temporal_landing_json_dir, json_file)
 
-def load_json_from_hdfs_to_mongodb(hdfs_path, local_path):
-    """Download JSON from HDFS, and add it to MongoDB."""
-    hdfs_client.download(hdfs_path, local_path, overwrite=True)
-    with open(local_path, 'r') as f:
-        data = pd.read_json(f)
-        mongo_collection.insert_many(data.to_dict('records'))
+                self.hdfs_client.download(hdfs_path, local_path, overwrite=True)
 
-if __name__ == "__main__":
-    # Load CSV Data of Open Data and Lookup Tables as Parquet
-    open_data_hdfs_path = '/path/to/opendata/csv'
-    lookup_tables_hdfs_path = '/path/to/lookup/tables/csv'
-    local_csv_path = '/tmp/tempfile.csv'
-    parquet_path = '/path/to/output.parquet'
-    
-    load_csv_from_hdfs_to_parquet(open_data_hdfs_path, local_csv_path, parquet_path)
-    load_csv_from_hdfs_to_parquet(lookup_tables_hdfs_path, local_csv_path, parquet_path)
+                with open(local_path, 'r') as f:
+                    data = pd.read_json(f)
+                    self.mongo_collection.insert_many(data.to_dict('records'))
+                
+                self.logger.info(f"JSON file {json_file} processed and loaded into MongoDB.")
+        except Exception as e:
+            self.logger.exception(f"Error processing JSON files: {e}")
 
-    # Load JSON data of Idealista to MongoDB
-    idealista_json_hdfs_path = '/path/to/idealista/json'
-    local_json_path = '/tmp/tempfile.json'
-    
-    load_json_from_hdfs_to_mongodb(idealista_json_hdfs_path, local_json_path)
-
+    def process_and_load_data(self, temporal_landing_csv_dir, temporal_landing_json_dir):
+        """
+        Orchestrates the processing and loading of data from TLZ.
+        CSV data will be converted to Parquet and stored in HDFS.
+        JSON data will be loaded into MongoDB.
+        """
+        try:
+            self.logger.info("Starting CSV files processing and loading into HDFS as Parquet.")
+            self.process_csv_files(temporal_landing_csv_dir)
+            
+            self.logger.info("Starting JSON files processing and loading into MongoDB.")
+            self.process_json_files(temporal_landing_json_dir)
+            
+            self.logger.info("Data processing and loading completed successfully.")
+        except Exception as e:
+            self.logger.exception("An error occurred during data processing and loading: ", exc_info=e)
