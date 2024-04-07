@@ -59,13 +59,18 @@ class DataCollector:
         try:
             json_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'idealista')
             csv_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'opendatabcn-income')
-            temporal_landing_opendata_dir = os.path.join(self.temporal_landing_dir, 'data_opendatabcn')
-            temporal_landing_idealista_dir = os.path.join(self.temporal_landing_dir, 'data_idealista')
+            lookup_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'lookup_tables')
+
+            temporal_landing_opendata_dir = os.path.join(self.temporal_landing_dir, 'opendatabcn_income_csv')
+            temporal_landing_idealista_dir = os.path.join(self.temporal_landing_dir, 'idealista_json')
+            temporal_landing_lookup_dir = os.path.join(self.temporal_landing_dir, 'lookup_csv')
 
             self.create_hdfs_dir(temporal_landing_opendata_dir)
             self.create_hdfs_dir(temporal_landing_idealista_dir)
+            self.create_hdfs_dir(temporal_landing_lookup_dir)
 
             self.upload_files_in_directory(csv_dir, temporal_landing_opendata_dir, '.csv')
+            self.upload_files_in_directory(lookup_dir, temporal_landing_lookup_dir, '.csv')
             self.upload_files_in_directory(json_dir, temporal_landing_idealista_dir, '.json')
 
         except Exception as e:
@@ -97,7 +102,7 @@ class DataCollector:
             response = requests.get(endpoint_url, headers=headers)
 
             if response.status_code == 200:
-                temporal_landing_dir = os.path.join(self.temporal_landing_dir, 'opendatabcn_accidents')
+                temporal_landing_dir = os.path.join(self.temporal_landing_dir, 'opendatabcn_accidents_csv')
                 self.create_hdfs_dir(temporal_landing_dir)
 
                 resources = response.json()['result']['resources']
