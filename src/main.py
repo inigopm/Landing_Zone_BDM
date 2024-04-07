@@ -86,7 +86,6 @@ def main():
             data_loader.process_and_load_data(TEMPORAL_LANDING_DIR_PATH)
         except Exception as e:
             logger.exception(f'Error occurred during data loading: {e}')
-
     
 def get_parser():
     parser = argparse.ArgumentParser()

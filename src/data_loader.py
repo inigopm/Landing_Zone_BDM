@@ -65,7 +65,11 @@ class DataLoader:
                 with self.client.read(f'{temporal_landing_csv_dir}/{csv_file}') as reader:
                     file_content = reader.read()
                 file_io = io.BytesIO(file_content)
-                table = pc.read_csv(file_io)
+                try:
+                    table = pc.read_csv(file_io)
+                except Exception as e:
+                    # self.logger.exception(f"Error processing CSV files: {e}")
+                    continue
 
                 hdfs_csv_path = f"{persistent_landing_csv_dir}/{csv_file}"
                 # print("Table: ", table)
@@ -122,6 +126,7 @@ class DataLoader:
             self.logger.info("Starting CSV files processing and loading into HDFS as Parquet.")
             self.process_csv_files(temporal_landing_dir+ "/opendatabcn_income_csv", self.persistent_landing_dir+"/opendatabcn_income_parquet")
             self.process_csv_files(temporal_landing_dir+ "/lookup_csv", self.persistent_landing_dir+"/lookup_parquet")
+            self.process_csv_files(temporal_landing_dir+ "/opendatabcn_accidents_csv", self.persistent_landing_dir+"/opendatabcn_accidents_parquet")
             
             vm = paramiko.SSHClient()
             vm.set_missing_host_key_policy(paramiko.AutoAddPolicy())
