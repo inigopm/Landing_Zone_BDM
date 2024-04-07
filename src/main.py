@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import logging.handlers
 from data_collector import DataCollector
 from data_loader import DataLoader
+import argparse
 
 # Create logger object
 logger = logging.getLogger(__name__)
@@ -44,35 +45,56 @@ MONGO_DB_NAME = os.getenv('MONGO_DB_NAME')
 MONGO_COLLECTION_NAME = os.getenv('MONGO_COLLECTION_NAME')
 
 def main():
-    try:
-        # data_collector = DataCollector(
-        #     TEMPORAL_LANDING_DIR_PATH,
-        #     HDFS_HOST,
-        #     HDFS_PORT,
-        #     HDFS_USER,
-        #     logger)
-        
-        # data_collector.delete_unwanted_hdfs_directories()
-        # Collect local files
-        # data_collector.collect_local_files_to_hdfs()
-        # # Collect external files
-        # data_collector.collect_data_from_opendata('accidents-gu-bcn')
+    # Create argument parser
+    parser = get_parser()
+    args = parser.parse_args()
+    process = args.process
 
-        data_loader = DataLoader(
-            PERSISTENT_LANDING_DIR_PATH,
-            HDFS_HOST,
-            HDFS_PORT,
-            HDFS_USER,
-            MONGO_DB_NAME,
-            MONGO_COLLECTION_NAME,
-            logger,
-            mongo_db_url=MONGO_DB_URL,
-            mongo_db_port=MONGO_DB_PORT)
+    if process == 'data_collector':
+        try:
+            data_collector = DataCollector(
+                TEMPORAL_LANDING_DIR_PATH,
+                HDFS_HOST,
+                HDFS_PORT,
+                HDFS_USER,
+                logger)
+            
+            # data_collector.delete_hdfs_directory(TEMPORAL_LANDING_DIR_PATH)
+            # data_collector.delete_hdfs_directory(PERSISTENT_LANDING_DIR_PATH)
+            # data_collector.delete_unwanted_hdfs_directories()
 
-        data_loader.process_and_load_data(TEMPORAL_LANDING_DIR_PATH)
+            # Collect local files
+            data_collector.collect_local_files_to_hdfs()
+            # Collect external files
+            data_collector.collect_data_from_opendata('accidents-gu-bcn')
+            logger.info('Data collection completed successfully.')
+        except Exception as e:
+            logger.exception(f'Error occurred during data collection: {e}')
+    elif(process == 'data_loader'):
+        try:
+            data_loader = DataLoader(
+                PERSISTENT_LANDING_DIR_PATH,
+                HDFS_HOST,
+                HDFS_PORT,
+                HDFS_USER,
+                MONGO_DB_NAME,
+                MONGO_COLLECTION_NAME,
+                logger,
+                mongo_db_url=MONGO_DB_URL,
+                mongo_db_port=MONGO_DB_PORT)
 
-    except Exception as e:
-        logger.exception(f'Error occurred during data collection and loading: {e}')
+            data_loader.process_and_load_data(TEMPORAL_LANDING_DIR_PATH)
+        except Exception as e:
+            logger.exception(f'Error occurred during data loading: {e}')
+
+    
+def get_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("process", choices=['data_collector', 'data_loader'],
+                        help="Data Governance Process",
+                        type=str)
+    return parser
+
 
 if __name__ == '__main__':
     main()
