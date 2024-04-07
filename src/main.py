@@ -43,6 +43,7 @@ MONGO_DB_URL = os.getenv('MONGO_DB_URL')
 MONGO_DB_PORT = int(os.getenv('MONGO_DB_PORT'))
 MONGO_DB_NAME = os.getenv('MONGO_DB_NAME')
 MONGO_COLLECTION_NAME = os.getenv('MONGO_COLLECTION_NAME')
+VM_PASSWORD = os.getenv('VM_PASSWORD')
 
 def main():
     # Create argument parser
@@ -80,6 +81,7 @@ def main():
                 MONGO_DB_NAME,
                 MONGO_COLLECTION_NAME,
                 logger,
+                VM_PASSWORD,
                 mongo_db_url=MONGO_DB_URL,
                 mongo_db_port=MONGO_DB_PORT)
 

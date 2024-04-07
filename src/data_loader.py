@@ -9,10 +9,11 @@ import json
 import paramiko
 
 class DataLoader:
-    def __init__(self, persistent_landing_dir, hdfs_host, hdfs_port, hdfs_user, mongo_db_name, mongo_collection_name, logger, mongo_db_url = 'localhost', mongo_db_port = 27017):
+    def __init__(self, persistent_landing_dir, hdfs_host, hdfs_port, hdfs_user, mongo_db_name, mongo_collection_name, logger, vm_password, mongo_db_url = 'localhost', mongo_db_port = 27017):
         self.hdfs_host = hdfs_host
         self.hdfs_port = hdfs_port
         self.hdfs_user = hdfs_user
+        self.vm_password = vm_password
         self.persistent_landing_dir=persistent_landing_dir
         self.logger = logger
         self.client = InsecureClient(f'http://{self.hdfs_host}:{self.hdfs_port}', user=self.hdfs_user)
@@ -61,18 +62,16 @@ class DataLoader:
             csv_files = self.client.list(temporal_landing_csv_dir)
             for csv_file in csv_files:
                 if not csv_file.endswith('.csv') or self.file_already_processed(csv_file, persistent_landing_csv_dir, 'csv'):
-                    continue  # Skip non-CSV files
+                    continue
                 with self.client.read(f'{temporal_landing_csv_dir}/{csv_file}') as reader:
                     file_content = reader.read()
                 file_io = io.BytesIO(file_content)
                 try:
                     table = pc.read_csv(file_io)
                 except Exception as e:
-                    # self.logger.exception(f"Error processing CSV files: {e}")
                     continue
 
                 hdfs_csv_path = f"{persistent_landing_csv_dir}/{csv_file}"
-                # print("Table: ", table)
                 parquet_hdfs_path = hdfs_csv_path.replace('.csv', '.parquet')
                 
                 buffer = io.BytesIO()
@@ -84,15 +83,7 @@ class DataLoader:
                 with self.client.write(parquet_hdfs_path, overwrite=True) as writer:
                     writer.write(data_bytes)
                 self.logger.info(f"File '{csv_file}' uploaded to HDFS directory: {persistent_landing_csv_dir}")
-                    
-                #with fs.HadoopFileSystem(host=self.client.url.split('//')[-1], port=int(self.client.root.split(':')[-1])) as hdfs_fs:
-                # with fs.HadoopFileSystem(host=self.hdfs_host, port=self.hdfs_port) as hdfs_fs:
-                #     pq.write_table(pq.Table.from_pandas(df), parquet_hdfs_path, filesystem=hdfs_fs)
-                # with open(parquet_hdfs_path, 'rb') as file:
-                #     parquet_data = file.read()
-                #     self.upload_file_to_hdfs(os.path.basename(parquet_hdfs_path), parquet_data, os.path.dirname(parquet_hdfs_path))
                 
-                self.logger.info(f"CSV file {csv_file} processed and stored as Parquet in HDFS.")
         except Exception as e:
             self.logger.exception(f"Error processing CSV files: {e}")
 
@@ -106,7 +97,6 @@ class DataLoader:
                     json_content = reader.read()
                     documents = json.loads(json_content)
                     if not isinstance(documents, list) or not documents:
-                        self.logger.error(f"Error with file {json_file}.")
                         continue
                     self.mongo_collection.insert_many(documents)
                     self.mark_file_as_processed(json_file, 'json')
@@ -130,17 +120,13 @@ class DataLoader:
             
             vm = paramiko.SSHClient()
             vm.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            vm.connect('10.4.41.49', username='bdm', password='bdm2024')
+            vm.connect(self.hdfs_host, username=self.hdfs_user, password=self.vm_password)
             command = '/home/bdm/BDM_Software/mongodb/bin/mongod --bind_ip_all --dbpath /home/bdm/BDM_Software/data/mongodb_data/'
-            stdin,stdout,stderr=vm.exec_command(command)
-            print(stdout.readlines())
-            print(stderr.readlines())
+            vm.exec_command(command)
+            
             self.logger.info("Starting JSON files processing and loading into MongoDB.")
             self.process_json_files(temporal_landing_dir+"/idealista_json", self.persistent_landing_dir+"/idealista_json")
-            
-            # self.logger.info("Data processing and loading completed successfully.")
-            # for collection in self.mongo_db.list_collection_names():
-            #     print(collection)
-            #     print(self.mongo_db[collection].count_documents({}))
+            self.logger.info("Data loading completed succesfully.")
+
         except Exception as e:
             self.logger.exception("An error occurred during data processing and loading: ", exc_info=e)
