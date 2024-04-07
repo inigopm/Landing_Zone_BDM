@@ -1,7 +1,6 @@
 # Big Data Management - Universitat Politècnica de Catalunya
-## Implementation of a Data Management Backbone
 
-### Instructions for Executing the Code
+## Instructions for Executing the Code
 
 - Create a virtual environment with Python 3.10 interpreter and run the following command to install the required libraries:
   - ```
