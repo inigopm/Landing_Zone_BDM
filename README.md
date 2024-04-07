@@ -17,6 +17,7 @@
     MONGO_DB_PORT = 27017
     MONGO_DB_NAME = 'bdm' #Change this
     MONGO_COLLECTION_NAME = 'idealista'
+    VM_PASSWORD='bdm2024' # Change this
     ```
 - For executing `data_collector` functionality in order to move data from the local machine or the Open Data BCN API to HDFS, make use of the following command:
   - ``` 
