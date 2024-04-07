@@ -1,0 +1,7 @@
+python-dotenv
+pandas
+hdfs
+pymongo
+pyarrow
+paramiko
+requests
