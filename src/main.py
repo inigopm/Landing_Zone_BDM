@@ -34,39 +34,42 @@ logger.addHandler(console_handler)
 # Load environment variables
 load_dotenv()
 TEMPORAL_LANDING_DIR_PATH = os.getenv('TEMPORAL_LANDING_DIR_PATH')
-TEMPORAL_LANDING_CSV_DIR = os.getenv('TEMPORAL_LANDING_CSV_DIR')
-TEMPORAL_LANDING_JSON_DIR = os.getenv('TEMPORAL_LANDING_JSON_DIR')
+PERSISTENT_LANDING_DIR_PATH = os.getenv('PERSISTENT_LANDING_DIR_PATH')
 HDFS_HOST = os.getenv('HDFS_HOST')
-HDFS_PORT = os.getenv('HDFS_PORT')
+HDFS_PORT = int(os.getenv('HDFS_PORT'))
 HDFS_USER = os.getenv('HDFS_USER')
-MONGO_CONNECTION_STRING = os.getenv('MONGO_CONNECTION_STRING')
+MONGO_DB_URL = os.getenv('MONGO_DB_URL')
+MONGO_DB_PORT = int(os.getenv('MONGO_DB_PORT'))
 MONGO_DB_NAME = os.getenv('MONGO_DB_NAME')
 MONGO_COLLECTION_NAME = os.getenv('MONGO_COLLECTION_NAME')
 
 def main():
     try:
-        data_collector = DataCollector(
-            TEMPORAL_LANDING_DIR_PATH,
+        # data_collector = DataCollector(
+        #     TEMPORAL_LANDING_DIR_PATH,
+        #     HDFS_HOST,
+        #     HDFS_PORT,
+        #     HDFS_USER,
+        #     logger)
+        
+        # data_collector.delete_unwanted_hdfs_directories()
+        # Collect local files
+        # data_collector.collect_local_files_to_hdfs()
+        # # Collect external files
+        # data_collector.collect_data_from_opendata('accidents-gu-bcn')
+
+        data_loader = DataLoader(
+            PERSISTENT_LANDING_DIR_PATH,
             HDFS_HOST,
             HDFS_PORT,
             HDFS_USER,
-            logger)
-        
-        #data_collector.delete_hdfs_directory(TEMPORAL_LANDING_DIR_PATH)
-        # Collect local files
-        data_collector.collect_local_files_to_hdfs()
-        # Collect external files
-        data_collector.collect_data_from_opendata('accidents-gu-bcn')
-
-        data_loader = DataLoader(
-            HDFS_HBASE_HOST,
-            HDFS_USER,
-            MONGO_CONNECTION_STRING,
             MONGO_DB_NAME,
             MONGO_COLLECTION_NAME,
-            logger)
+            logger,
+            mongo_db_url=MONGO_DB_URL,
+            mongo_db_port=MONGO_DB_PORT)
 
-        data_loader.process_and_load_data(TEMPORAL_LANDING_CSV_DIR, TEMPORAL_LANDING_JSON_DIR)
+        data_loader.process_and_load_data(TEMPORAL_LANDING_DIR_PATH)
 
     except Exception as e:
         logger.exception(f'Error occurred during data collection and loading: {e}')

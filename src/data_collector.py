@@ -44,7 +44,7 @@ class DataCollector:
             hdfs_dir_path (str): Path to the HDFS directory where the file will be uploaded.
         """
         try:            
-            hdfs_file_path = os.path.join(hdfs_dir_path, filename)
+            hdfs_file_path = hdfs_dir_path +"/"+ filename
             # Write the file to HDFS
             with self.client.write(hdfs_file_path, overwrite=True) as writer:
                 writer.write(data_bytes)
@@ -61,9 +61,9 @@ class DataCollector:
             csv_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'opendatabcn-income')
             lookup_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'lookup_tables')
 
-            temporal_landing_opendata_dir = os.path.join(self.temporal_landing_dir, 'opendatabcn_income_csv')
-            temporal_landing_idealista_dir = os.path.join(self.temporal_landing_dir, 'idealista_json')
-            temporal_landing_lookup_dir = os.path.join(self.temporal_landing_dir, 'lookup_csv')
+            temporal_landing_opendata_dir = self.temporal_landing_dir+ '/opendatabcn_income_csv'
+            temporal_landing_idealista_dir =self.temporal_landing_dir+ '/idealista_json'
+            temporal_landing_lookup_dir = self.temporal_landing_dir+ '/lookup_csv'
 
             self.create_hdfs_dir(temporal_landing_opendata_dir)
             self.create_hdfs_dir(temporal_landing_idealista_dir)
@@ -134,3 +134,22 @@ class DataCollector:
                 self.logger.info(f"Directory '{hdfs_dir_path}' does not exist in HDFS.")
         except Exception as e:
             self.logger.exception(f"Failed to delete directory '{hdfs_dir_path}' from HDFS: {e}")
+
+    # def delete_unwanted_hdfs_directories(self):
+    #     """
+    #     Delete all directories except 'hbase' and 'user' and their contents from HDFS.
+    #     """
+    #     root_dir_path = "/"  # Assuming the root path is '/', adjust if it's different
+    #     try:
+    #         # List all entries in the root directory
+    #         entries = self.client.list(root_dir_path, status=True)
+    #         print(entries)
+    #         for entry in entries:
+    #             # Check if the entry is a directory and not in the excluded list
+    #             if entry[1]['type'] == 'FILE' and entry[0] not in ['hbase', 'user']:
+    #                 directory_path = f"{root_dir_path}{entry[0]}"
+    #                 # Delete the directory and its contents
+    #                 self.client.delete(directory_path, recursive=True)
+    #                 self.logger.info(f"Directory '{directory_path}' and its contents deleted successfully from HDFS.")
+    #     except Exception as e:
+    #         self.logger.exception(f"Failed to delete directories from HDFS: {e}")
